@@ -1,0 +1,29 @@
+.python-changes:
+  rules:
+    - changes: [{{.Path}}/**/*, .gitlab/python-ci.yml, .gitlab-ci.yml]
+
+python:test:
+  extends: .python-changes
+  stage: test
+  image: ghcr.io/astral-sh/uv:python3.12-alpine
+  cache: {key: {files: [{{.Path}}/uv.lock]}, paths: [.uv-cache/]}
+  variables: {UV_CACHE_DIR: $CI_PROJECT_DIR/.uv-cache}
+  script: [cd {{.Path}}, 'uv sync --locked', 'uv run python -m compileall .']
+
+python:image:
+  stage: image
+  image: {name: 'moby/buildkit:rootless', entrypoint: [""]}
+  needs: [python:test]
+  variables: {BUILDKITD_FLAGS: --oci-worker-no-process-sandbox}
+  script:
+    - 'PUSH=false'
+    - |
+      if [ "$CI_PIPELINE_SOURCE" = "push" ] && [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        mkdir -p ~/.docker
+        printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}' "$CI_REGISTRY" "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" > ~/.docker/config.json
+        PUSH=true
+      fi
+      export PUSH
+    - 'buildctl-daemonless.sh build --frontend dockerfile.v0 --local context={{.Path}} --local dockerfile={{.Path}} --output type=image,name=$CI_REGISTRY_IMAGE/python:$CI_COMMIT_SHA,push=$PUSH'
+  rules:
+    - changes: [{{.Path}}/**/*, .gitlab/python-ci.yml, .gitlab-ci.yml]

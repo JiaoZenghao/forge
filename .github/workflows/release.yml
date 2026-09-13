@@ -1,0 +1,39 @@
+name: Release artifacts
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v7
+        with:
+          go-version: '1.25.x'
+          cache: true
+      - name: Test
+        run: go test ./...
+      - name: Vet
+        run: go vet ./...
+      - name: Build archives and checksums
+        shell: bash
+        run: |
+          build_date="$(git show -s --format=%cI "${GITHUB_SHA}")"
+          go run ./tools/release \
+            --version "${GITHUB_REF_NAME}" \
+            --commit "${GITHUB_SHA}" \
+            --date "${build_date}" \
+            --output dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: forge-${{ github.ref_name }}
+          path: dist/
+          if-no-files-found: error

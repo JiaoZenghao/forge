@@ -1,0 +1,11 @@
+.python-changes:
+  rules:
+    - changes: [{{.Path}}/**/*, .gitlab/python-ci.yml, .gitlab-ci.yml]
+
+python:test:
+  extends: .python-changes
+  stage: test
+  image: ghcr.io/astral-sh/uv:python3.12-alpine
+  cache: {key: {files: [{{.Path}}/uv.lock]}, paths: [.uv-cache/]}
+  variables: {UV_CACHE_DIR: $CI_PROJECT_DIR/.uv-cache}
+  script: [cd {{.Path}}, 'uv sync --locked', 'uv run python -m compileall .']

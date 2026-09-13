@@ -1,0 +1,24 @@
+.frontend-changes:
+  rules:
+    - changes: [{{.Path}}/**/*, .gitlab/frontend-ci.yml, .gitlab-ci.yml]
+
+frontend:test:
+  extends: .frontend-changes
+  stage: test
+  image: node:22-alpine
+  cache:
+    key:
+      files: [{{.Path}}/package-lock.json]
+    paths: [{{.Path}}/.npm/]
+  before_script: [cd {{.Path}}, 'npm ci --cache .npm --prefer-offline']
+  script:
+    - npm run lint
+    - 'npm test --if-present'
+
+frontend:build:
+  extends: .frontend-changes
+  stage: package
+  image: node:22-alpine
+  needs: [frontend:test]
+  before_script: [cd {{.Path}}, 'npm ci --cache .npm --prefer-offline']
+  script: [npm run build]

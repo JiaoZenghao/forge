@@ -1,0 +1,13 @@
+# Agent guide
+
+Forge owns `forge.yaml`, CI workflows, Docker assets, this guide, and the root README. Application source belongs to its component.
+
+Work within component boundaries and run commands from the component directory:
+{{if .Frontend}}
+- `{{.FrontendPath}}`: `npm ci`, `npm run lint`, `npm test --if-present`, `npm run build`.
+{{end}}{{if .Backend}}
+- `{{.BackendPath}}`: `./mvnw --batch-mode test`; package with `./mvnw --batch-mode -DskipTests package` before a local Docker build.
+{{end}}{{if .Python}}
+- `{{.PythonPath}}`: `uv sync --locked`, `uv run python -m compileall .`, `uv run main.py`.
+{{end}}
+CI component filters and image credential guards are Forge-owned engineering controls. Run `forge validate --path .` after changing generated engineering files.

@@ -1,0 +1,64 @@
+version: '3'
+
+tasks:
+  default:
+    desc: List available development tasks
+    cmds:
+      - task --list
+    silent: true
+
+  deps:
+    desc: Download Go module dependencies
+    cmds:
+      - go mod download
+
+  run:
+    desc: Run Forge (task run -- version --json)
+    cmds:
+      - go run ./cmd/forge {{.CLI_ARGS | default "--help"}}
+
+  build:
+    desc: Build the local binary in dist/
+    vars:
+      EXE:
+        sh: go env GOEXE
+    env:
+      CGO_ENABLED: '0'
+    cmds:
+      - go build {{.CLI_ARGS}} -o "dist/forge{{.EXE}}" ./cmd/forge
+
+  test:
+    desc: Run tests (task test -- -v -count=1 ./internal/runner)
+    cmds:
+      - go test {{.CLI_ARGS | default "./..."}}
+
+  clean:
+    desc: Remove local build artifacts, coverage output, and Task cache
+    cmds:
+      - go run ./tools/clean
+
+  test:race:
+    desc: Run tests with the race detector
+    cmds:
+      - go test -race {{.CLI_ARGS | default "./..."}}
+
+  vet:
+    desc: Run Go static analysis
+    cmds:
+      - go vet {{.CLI_ARGS | default "./..."}}
+
+  fmt:
+    desc: Format Go source files
+    cmds:
+      - go fmt ./...
+
+  check:
+    desc: Run all tests and static analysis
+    cmds:
+      - task: test
+      - task: vet
+
+  release:
+    desc: Build six platform archives and SHA256SUMS (task release -- --version v0.1.0)
+    cmds:
+      - go run ./tools/release {{.CLI_ARGS}}

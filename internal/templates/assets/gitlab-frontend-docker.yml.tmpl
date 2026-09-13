@@ -1,0 +1,35 @@
+.frontend-changes:
+  rules:
+    - changes: [{{.Path}}/**/*, .gitlab/frontend-ci.yml, .gitlab-ci.yml]
+
+frontend:test:
+  extends: .frontend-changes
+  stage: test
+  image: node:22-alpine
+  cache:
+    key:
+      files: [{{.Path}}/package-lock.json]
+    paths: [{{.Path}}/.npm/]
+  before_script: [cd {{.Path}}, 'npm ci --cache .npm --prefer-offline']
+  script: [npm run lint, 'npm test --if-present']
+
+frontend:image:
+  stage: image
+  image:
+    name: moby/buildkit:rootless
+    entrypoint: [""]
+  needs: [frontend:test]
+  variables:
+    BUILDKITD_FLAGS: --oci-worker-no-process-sandbox
+  script:
+    - 'PUSH=false'
+    - |
+      if [ "$CI_PIPELINE_SOURCE" = "push" ] && [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        mkdir -p ~/.docker
+        printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}' "$CI_REGISTRY" "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" > ~/.docker/config.json
+        PUSH=true
+      fi
+      export PUSH
+    - 'buildctl-daemonless.sh build --frontend dockerfile.v0 --local context={{.Path}} --local dockerfile={{.Path}} --output type=image,name=$CI_REGISTRY_IMAGE/frontend:$CI_COMMIT_SHA,push=$PUSH'
+  rules:
+    - changes: [{{.Path}}/**/*, .gitlab/frontend-ci.yml, .gitlab-ci.yml]

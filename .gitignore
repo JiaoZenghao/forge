@@ -1,0 +1,8 @@
+/dist/
+/.task/
+/forge
+/forge.exe
+*.test
+*.test.exe
+coverage.out
+.DS_Store

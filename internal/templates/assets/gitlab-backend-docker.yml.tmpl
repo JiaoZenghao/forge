@@ -1,0 +1,48 @@
+.backend-changes:
+  rules:
+    - changes: [{{.Path}}/**/*, .gitlab/backend-ci.yml, .gitlab-ci.yml]
+
+backend:test:
+  extends: .backend-changes
+  variables: {MAVEN_OPTS: '-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository'}
+  stage: test
+  image: eclipse-temurin:21-jdk
+  script: [cd {{.Path}}, './mvnw --batch-mode test']
+  cache:
+    key:
+      files: [{{.Path}}/pom.xml]
+    paths: [.m2/repository/]
+
+backend:package:
+  extends: .backend-changes
+  variables: {MAVEN_OPTS: '-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository'}
+  stage: package
+  image: eclipse-temurin:21-jdk
+  needs: [backend:test]
+  script: [cd {{.Path}}, './mvnw --batch-mode -DskipTests package']
+  cache:
+    key:
+      files: [{{.Path}}/pom.xml]
+    paths: [.m2/repository/]
+  artifacts:
+    paths: [{{.Path}}/target/*.jar]
+
+backend:image:
+  stage: image
+  image: {name: 'moby/buildkit:rootless', entrypoint: [""]}
+  needs:
+    - job: backend:package
+      artifacts: true
+  variables: {BUILDKITD_FLAGS: --oci-worker-no-process-sandbox}
+  script:
+    - 'PUSH=false'
+    - |
+      if [ "$CI_PIPELINE_SOURCE" = "push" ] && [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        mkdir -p ~/.docker
+        printf '{"auths":{"%s":{"username":"%s","password":"%s"}}}' "$CI_REGISTRY" "$CI_REGISTRY_USER" "$CI_REGISTRY_PASSWORD" > ~/.docker/config.json
+        PUSH=true
+      fi
+      export PUSH
+    - 'buildctl-daemonless.sh build --frontend dockerfile.v0 --local context={{.Path}} --local dockerfile={{.Path}} --output type=image,name=$CI_REGISTRY_IMAGE/backend:$CI_COMMIT_SHA,push=$PUSH'
+  rules:
+    - changes: [{{.Path}}/**/*, .gitlab/backend-ci.yml, .gitlab-ci.yml]
