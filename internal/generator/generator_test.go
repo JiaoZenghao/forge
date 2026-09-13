@@ -200,7 +200,7 @@ func TestGeneratePythonUsesStandaloneUvProjectAndLocksIt(t *testing.T) {
 	if len(r.calls) != 2 {
 		t.Fatalf("calls = %#v", r.calls)
 	}
-	wantInit := []string{"init", "--no-workspace", "--vcs", "none", "--no-package", "--python", "3.12", "services/ai"}
+	wantInit := []string{"init", "--no-workspace", "--vcs", "none", "--no-package", "--python", "3.12", filepath.Join("services", "ai")}
 	if r.calls[0].Command != "uv" || !reflect.DeepEqual(r.calls[0].Args, wantInit) || r.calls[0].Dir != root {
 		t.Fatalf("init = %#v", r.calls[0])
 	}

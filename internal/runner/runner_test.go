@@ -29,13 +29,28 @@ func TestOSRunnerPassesDirectoryEnvironmentAndStreams(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
-	realDir, err := filepath.EvalSymlinks(dir)
-	if err != nil {
-		t.Fatalf("EvalSymlinks(temp dir): %v", err)
+	cwdLine, output, ok := strings.Cut(stdout.String(), "\n")
+	if !ok || !strings.HasPrefix(cwdLine, "cwd=") {
+		t.Fatalf("stdout missing working directory: %q", stdout.String())
 	}
-	wantOut := fmt.Sprintf("cwd=%s\nenv=from-spec\nstdin=from-stdin\n", realDir)
-	if stdout.String() != wantOut {
-		t.Fatalf("stdout = %q, want %q", stdout.String(), wantOut)
+	cwd := strings.TrimPrefix(cwdLine, "cwd=")
+	if !filepath.IsAbs(cwd) {
+		t.Fatalf("child working directory is not absolute: %q", cwd)
+	}
+	gotDir, err := os.Stat(cwd)
+	if err != nil {
+		t.Fatalf("Stat(child working directory): %v", err)
+	}
+	wantDir, err := os.Stat(dir)
+	if err != nil {
+		t.Fatalf("Stat(temp dir): %v", err)
+	}
+	// Windows short/long paths and symlink aliases can identify the same directory.
+	if !os.SameFile(gotDir, wantDir) {
+		t.Fatalf("child working directory %q differs from %q", cwd, dir)
+	}
+	if output != "env=from-spec\nstdin=from-stdin\n" {
+		t.Fatalf("stdout after working directory = %q", output)
 	}
 	if stderr.String() != "helper-stderr\n" {
 		t.Fatalf("stderr = %q, want helper stderr", stderr.String())

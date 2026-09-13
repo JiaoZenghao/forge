@@ -1,5 +1,26 @@
 # Verification record
 
+## Windows CI path assertions — 2026-09-13
+
+GitHub Actions run `34754729218` reproduced two test assertion failures on
+Windows with both Go 1.25.x and stable: the uv argument expectation hardcoded
+Unix separators, and the runner test compared short/long directory spellings
+as strings. The assertions now use a native relative path and `os.SameFile`
+directory identity respectively. Environment and stream assertions remain exact;
+production code and the CI matrix are unchanged.
+
+Local verification passed on macOS arm64, Go 1.27.0:
+
+```text
+go test -count=1 ./internal/generator ./internal/runner
+go test -count=1 ./...
+go test -race -count=1 ./internal/runner
+go vet ./...
+```
+
+These local checks do not establish Windows runtime success; the fix must also
+pass the existing Windows GitHub Actions jobs after push.
+
 ## Taskfile verification — 2026-09-08
 
 The subsequent `task clean` addition was verified in a temporary fixture with
